@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Tower Defense Demo</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f0f0; }
+        canvas { background-color: #fff; border: 1px solid #ccc; }
+        #game-container { text-align: center; }
+        #controls { margin-top: 10px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div id="controls">
+            <button onclick="spawnUnit()">ユニット生成 (コスト: 10)</button>
+            <p>ゴールド: <span id="goldDisplay">0</span> | HP: <span id="hpDisplay">100</span></p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const goldDisplay = document.getElementById('goldDisplay');
+        const hpDisplay = document.getElementById('hpDisplay');
+
+        let gold = 50;
+        let baseHp = 100;
+        const UNIT_COST = 10;
+        const UNIT_SPEED = 0.5;
+        const ENEMY_SPEED = 0.3;
+        const SPAWN_INTERVAL = 2000; // 敵の生成間隔 (ms)
+
+        let units = [];
+        let enemies = [];
+        let lastSpawnTime = 0;
+        let gameOver = false;
+
+        class Character {
+            constructor(x, y, color, speed, type) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.speed = speed;
+                this.type = type; // 'unit' or 'enemy'
+                this.width = 30;
+                this.height = 30;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.strokeStyle = '#333';
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+            }
+
+            update() {
+                if (this.type === 'unit') {
+                    this.x += this.speed;
+                } else {
+                    this.x -= this.speed;
+                }
+            }
+        }
+
+        function spawnUnit() {
+            if (gameOver) return;
+            if (gold >= UNIT_COST) {
+                gold -= UNIT_COST;
+                // Y座標はランダムに少しずらす
+                const startY = Math.random() * (canvas.height - 30); 
+                units.push(new Character(50, startY, 'blue', UNIT_SPEED, 'unit'));
+            }
+        }
+
+        function spawnEnemy() {
+            if (gameOver) return;
+            const startY = Math.random() * (canvas.height - 30);
+            enemies.push(new Character(canvas.width - 50, startY, 'red', ENEMY_SPEED, 'enemy'));
+        }
+
+        function checkCollisions() {
+            // ユニットと敵の衝突判定は省略（簡略化のため、ここでは互いに通過するようにしています）
+            // 実際のにゃんこ大戦争では衝突時に戦闘になります
+
+            // 敵が自陣に到達したか判定
+            enemies = enemies.filter(enemy => {
+                if (enemy.x <= 0) {
+                    baseHp -= 10; // HP減少
+                    if (baseHp <= 0) {
+                        endGame('敗北...');
+                    }
+                    return false; // 敵を配列から除去
+                }
+                return true;
+            });
+        }
+
+        function updateGame() {
+            if (gameOver) return;
+
+            // ゴールド増加（時間経過）
+            gold += 0.05; 
+
+            // 敵の自動生成
+            if (Date.now() - lastSpawnTime > SPAWN_INTERVAL) {
+                spawnEnemy();
+                lastSpawnTime = Date.now();
+            }
+
+            // 更新処理
+            units.forEach(unit => unit.update());
+            enemies.forEach(enemy => enemy.update());
+
+            checkCollisions();
+            
+            // 画面表示の更新
+            goldDisplay.textContent = Math.floor(gold);
+            hpDisplay.textContent = baseHp;
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // 画面クリア
+
+            // 自陣と敵陣の境界線を描画
+            ctx.fillStyle = 'rgba(0, 0, 255, 0.1)';
+            ctx.fillRect(0, 0, 100, canvas.height);
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+            ctx.fillRect(canvas.width - 100, 0, 100, canvas.height);
+
+            // キャラクター描画
+            units.forEach(unit => unit.draw());
+            enemies.forEach(enemy => enemy.draw());
+
+            if (gameOver) {
+                ctx.fillStyle = 'black';
+                ctx.font = '48px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(gameOverMessage, canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function endGame(message) {
+            gameOver = true;
+            gameOverMessage = message;
+        }
+
+        function gameLoop() {
+            updateGame();
+            drawGame();
+            requestAnimationFrame(gameLoop); // スムーズなアニメーションのためのループ
+        }
+
+        // ゲーム開始
+        lastSpawnTime = Date.now();
+        gameLoop();
+
+    </script>
+</body>
+</html>
